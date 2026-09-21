@@ -15,34 +15,55 @@ export interface AccountBalanceRow {
  * Trial Balance Report Generator
  */
 export async function getTrialBalance(companyId: string) {
-  const accounts = await db.account.findMany({
-    where: { companyId, isActive: true },
-    include: {
-      accountGroup: true,
-      journalLines: {
-        where: {
-          journalEntry: {
-            companyId,
-            isPosted: true,
+  const [accounts, journalSums] = await Promise.all([
+    db.account.findMany({
+      where: { companyId, isActive: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        openingBalance: true,
+        openingBalanceType: true,
+        accountGroup: {
+          select: {
+            name: true,
+            nature: true,
           },
         },
       },
-    },
-    orderBy: { code: 'asc' },
-  });
+      orderBy: { code: 'asc' },
+    }),
+    db.journalEntryLine.groupBy({
+      by: ['accountId'],
+      where: {
+        journalEntry: {
+          companyId,
+          isPosted: true,
+        },
+      },
+      _sum: {
+        debit: true,
+        credit: true,
+      },
+    }),
+  ]);
+
+  const sumsMap = new Map<string, { debit: number; credit: number }>();
+  for (const js of journalSums) {
+    sumsMap.set(js.accountId, {
+      debit: js._sum.debit || 0,
+      credit: js._sum.credit || 0,
+    });
+  }
 
   const rows: AccountBalanceRow[] = [];
   let totalDebit = 0;
   let totalCredit = 0;
 
   for (const acc of accounts) {
-    let sumDebit = acc.openingBalanceType === 'DR' ? acc.openingBalance : 0;
-    let sumCredit = acc.openingBalanceType === 'CR' ? acc.openingBalance : 0;
-
-    for (const line of acc.journalLines) {
-      sumDebit += line.debit;
-      sumCredit += line.credit;
-    }
+    const js = sumsMap.get(acc.id);
+    let sumDebit = (acc.openingBalanceType === 'DR' ? acc.openingBalance : 0) + (js?.debit || 0);
+    let sumCredit = (acc.openingBalanceType === 'CR' ? acc.openingBalance : 0) + (js?.credit || 0);
 
     sumDebit = Number(sumDebit.toFixed(2));
     sumCredit = Number(sumCredit.toFixed(2));
@@ -86,8 +107,8 @@ export async function getTrialBalance(companyId: string) {
 /**
  * Profit & Loss Report Generator
  */
-export async function getProfitAndLoss(companyId: string) {
-  const tb = await getTrialBalance(companyId);
+export async function getProfitAndLoss(companyId: string, existingTb?: Awaited<ReturnType<typeof getTrialBalance>>) {
+  const tb = existingTb || (await getTrialBalance(companyId));
 
   const incomeAccounts = tb.rows.filter((r) => r.nature === 'INCOME');
   const expenseAccounts = tb.rows.filter((r) => r.nature === 'EXPENSE');
@@ -109,9 +130,9 @@ export async function getProfitAndLoss(companyId: string) {
 /**
  * Balance Sheet Report Generator
  */
-export async function getBalanceSheet(companyId: string) {
-  const tb = await getTrialBalance(companyId);
-  const pnl = await getProfitAndLoss(companyId);
+export async function getBalanceSheet(companyId: string, existingTb?: Awaited<ReturnType<typeof getTrialBalance>>) {
+  const tb = existingTb || (await getTrialBalance(companyId));
+  const pnl = await getProfitAndLoss(companyId, tb);
 
   const assetAccounts = tb.rows.filter((r) => r.nature === 'ASSET');
   const liabilityAccounts = tb.rows.filter((r) => r.nature === 'LIABILITY');

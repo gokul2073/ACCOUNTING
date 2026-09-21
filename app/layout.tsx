@@ -7,8 +7,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Antigravity ERP — Complete Indian Accounting, GST & Inventory Software',
-  description: 'Enterprise Accounting, GST Tax Invoicing, Inventory Ledger & Financial Statements software for Indian businesses.',
+  title: 'Balaji Conveyors ERP — Complete Indian Accounting, GST & Inventory Software',
+  description: 'Enterprise Accounting, GST Tax Invoicing, Inventory Ledger & Financial Statements software for Balaji Conveyors.',
 };
 
 export default function RootLayout({

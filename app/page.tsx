@@ -44,14 +44,6 @@ export default function DashboardPage() {
     { month: 'Aug 26', Sales: stats?.stats?.totalSales || 500000, Purchases: stats?.stats?.totalPurchases || 280000 },
   ];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-slate-500 font-medium">
-        Loading ERP Dashboard...
-      </div>
-    );
-  }
-
   const s = stats?.stats || {
     totalSales: 0,
     totalPurchases: 0,
@@ -102,7 +94,11 @@ export default function DashboardPage() {
             <span className="text-xs font-semibold uppercase tracking-wider">Total Sales</span>
             <TrendingUp className="w-4 h-4 text-emerald-600" />
           </div>
-          <p className="text-xl font-extrabold text-slate-900 mt-2 font-mono">₹{s.totalSales.toLocaleString('en-IN')}</p>
+          {loading ? (
+            <div className="h-7 w-28 bg-slate-100 animate-pulse rounded mt-2" />
+          ) : (
+            <p className="text-xl font-extrabold text-slate-900 mt-2 font-mono">₹{s.totalSales.toLocaleString('en-IN')}</p>
+          )}
           <p className="text-[10px] text-emerald-600 mt-1 font-medium flex items-center gap-0.5">
             <ArrowUpRight className="w-3 h-3" /> GST Tax Invoices
           </p>
@@ -113,7 +109,11 @@ export default function DashboardPage() {
             <span className="text-xs font-semibold uppercase tracking-wider">Total Purchases</span>
             <ShoppingCart className="w-4 h-4 text-blue-600" />
           </div>
-          <p className="text-xl font-extrabold text-slate-900 mt-2 font-mono">₹{s.totalPurchases.toLocaleString('en-IN')}</p>
+          {loading ? (
+            <div className="h-7 w-28 bg-slate-100 animate-pulse rounded mt-2" />
+          ) : (
+            <p className="text-xl font-extrabold text-slate-900 mt-2 font-mono">₹{s.totalPurchases.toLocaleString('en-IN')}</p>
+          )}
           <p className="text-[10px] text-blue-600 mt-1 font-medium">Input ITC Tax Claims</p>
         </div>
 
@@ -122,7 +122,11 @@ export default function DashboardPage() {
             <span className="text-xs font-semibold uppercase tracking-wider">Receivables</span>
             <Users className="w-4 h-4 text-amber-600" />
           </div>
-          <p className="text-xl font-extrabold text-amber-600 mt-2 font-mono">₹{s.totalReceivables.toLocaleString('en-IN')}</p>
+          {loading ? (
+            <div className="h-7 w-28 bg-slate-100 animate-pulse rounded mt-2" />
+          ) : (
+            <p className="text-xl font-extrabold text-amber-600 mt-2 font-mono">₹{s.totalReceivables.toLocaleString('en-IN')}</p>
+          )}
           <p className="text-[10px] text-slate-500 mt-1">Customer Outstanding</p>
         </div>
 
@@ -131,7 +135,11 @@ export default function DashboardPage() {
             <span className="text-xs font-semibold uppercase tracking-wider">Payables</span>
             <Building className="w-4 h-4 text-rose-600" />
           </div>
-          <p className="text-xl font-extrabold text-rose-600 mt-2 font-mono">₹{s.totalPayables.toLocaleString('en-IN')}</p>
+          {loading ? (
+            <div className="h-7 w-28 bg-slate-100 animate-pulse rounded mt-2" />
+          ) : (
+            <p className="text-xl font-extrabold text-rose-600 mt-2 font-mono">₹{s.totalPayables.toLocaleString('en-IN')}</p>
+          )}
           <p className="text-[10px] text-slate-500 mt-1">Supplier Outstanding</p>
         </div>
 
@@ -140,7 +148,11 @@ export default function DashboardPage() {
             <span className="text-xs font-semibold uppercase tracking-wider">Stock Valuation</span>
             <Package className="w-4 h-4 text-indigo-600" />
           </div>
-          <p className="text-xl font-extrabold text-slate-900 mt-2 font-mono">₹{s.stockValue.toLocaleString('en-IN')}</p>
+          {loading ? (
+            <div className="h-7 w-28 bg-slate-100 animate-pulse rounded mt-2" />
+          ) : (
+            <p className="text-xl font-extrabold text-slate-900 mt-2 font-mono">₹{s.stockValue.toLocaleString('en-IN')}</p>
+          )}
           <p className="text-[10px] text-indigo-600 mt-1 font-medium">Weighted Average</p>
         </div>
 
@@ -149,9 +161,13 @@ export default function DashboardPage() {
             <span className="text-xs font-semibold uppercase tracking-wider">Net Profit</span>
             <DollarSign className="w-4 h-4 text-emerald-600" />
           </div>
-          <p className={`text-xl font-extrabold mt-2 font-mono ${s.netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-            ₹{s.netProfit.toLocaleString('en-IN')}
-          </p>
+          {loading ? (
+            <div className="h-7 w-28 bg-slate-100 animate-pulse rounded mt-2" />
+          ) : (
+            <p className={`text-xl font-extrabold mt-2 font-mono ${s.netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              ₹{s.netProfit.toLocaleString('en-IN')}
+            </p>
+          )}
           <p className="text-[10px] text-slate-500 mt-1">Ledger Derived P&L</p>
         </div>
       </div>
@@ -206,10 +222,10 @@ export default function DashboardPage() {
             </div>
           </div>
           <Link
-            href="/inventory"
+            href="/masters/items"
             className="w-full mt-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg text-center transition-all block"
           >
-            View Stock Ledger & Movements →
+            View Products & Item Stock →
           </Link>
         </div>
       </div>

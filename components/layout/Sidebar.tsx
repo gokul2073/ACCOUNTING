@@ -28,11 +28,9 @@ const navigationItems = [
   { name: 'Customers', href: '/masters/customers', icon: Users },
   { name: 'Suppliers', href: '/masters/suppliers', icon: Building2 },
   { name: 'Items / Products', href: '/masters/items', icon: Package },
-  { name: 'Stock & Inventory', href: '/inventory', icon: Warehouse },
   { name: 'Chart of Accounts', href: '/accounting/accounts', icon: BookOpen },
   { name: 'Financial Reports', href: '/reports/financial', icon: PieChart },
   { name: 'GST Register', href: '/gst/summary', icon: ShieldAlert },
-  { name: 'Banking & Cash', href: '/banking', icon: Landmark },
   { name: 'Company Settings', href: '/settings', icon: Settings },
 ];
 
@@ -45,10 +43,10 @@ export default function Sidebar() {
       <div className="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-950/60">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20">
-            ERP
+            BC
           </div>
           <div>
-            <h1 className="font-bold text-base tracking-tight text-white leading-tight">Antigravity ERP</h1>
+            <h1 className="font-bold text-base tracking-tight text-white leading-tight">Balaji Conveyors ERP</h1>
             <p className="text-[11px] text-blue-400 font-medium">Indian GST Accounting</p>
           </div>
         </div>
@@ -98,17 +96,13 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer Profile User info */}
+      {/* Footer System Status */}
       <div className="p-4 border-t border-slate-800 bg-slate-950/40 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-xs text-white border border-slate-600">
-            RS
-          </div>
-          <div className="truncate">
-            <p className="text-xs font-semibold text-slate-200 truncate">Rajesh Sharma</p>
-            <p className="text-[10px] text-slate-400">Admin • Balaji Conveyors</p>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <p className="text-xs font-semibold text-slate-300">Balaji Conveyors</p>
         </div>
+        <span className="text-[10px] text-slate-400 font-mono">v1.0</span>
       </div>
     </aside>
   );

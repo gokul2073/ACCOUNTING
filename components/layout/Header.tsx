@@ -52,12 +52,9 @@ export default function Header() {
         </button>
 
         <div className="flex items-center gap-2 pl-2">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-semibold text-slate-800">Rajesh Sharma</p>
-            <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end gap-1">
-              <CheckCircle2 className="w-3 h-3" /> System Balanced
-            </p>
-          </div>
+          <p className="text-[10px] text-emerald-600 font-medium flex items-center justify-end gap-1">
+            <CheckCircle2 className="w-3 h-3" /> System Balanced
+          </p>
         </div>
       </div>
     </header>

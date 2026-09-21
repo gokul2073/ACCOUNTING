@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, FileText, Printer, CheckCircle } from 'lucide-react';
+import { Plus, Search, FileText, Printer, CheckCircle, Trash2 } from 'lucide-react';
 import InvoicePdfModal from '@/components/ui/InvoicePdfModal';
 import DocumentTrail from '@/components/ui/DocumentTrail';
 
@@ -12,7 +12,8 @@ export default function SalesInvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
+  const fetchInvoices = () => {
+    setLoading(true);
     fetch('/api/sales/invoices')
       .then((res) => res.json())
       .then((data) => {
@@ -20,8 +21,34 @@ export default function SalesInvoicesPage() {
           setInvoices(data.invoices);
         }
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchInvoices();
   }, []);
+
+  const handleDeleteInvoice = async (invoiceId: string, invoiceNumber: string) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete Invoice ${invoiceNumber}? This action cannot be undone.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch(`/api/sales/invoices/${invoiceId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchInvoices();
+      } else {
+        alert(`Failed to delete invoice: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`Delete failed: ${err.message || 'Network error'}`);
+    }
+  };
 
   const filteredInvoices = invoices.filter(
     (inv) =>
@@ -112,13 +139,20 @@ export default function SalesInvoicesPage() {
                         POSTED
                       </span>
                     </td>
-                    <td className="p-3 text-center">
+                    <td className="p-3 text-center flex items-center justify-center gap-2">
                       <button
                         onClick={() => setSelectedInvoice(inv)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded text-[11px] font-semibold shadow-sm transition-all"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded text-[11px] font-semibold shadow-sm transition-all cursor-pointer"
                       >
                         <Printer className="w-3.5 h-3.5" />
-                        <span>Print PDF</span>
+                        <span>Print / View</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteInvoice(inv.id, inv.invoiceNumber)}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded text-[11px] font-semibold transition-all cursor-pointer"
+                        title="Delete Invoice"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </td>
                   </tr>
@@ -134,6 +168,7 @@ export default function SalesInvoicesPage() {
         isOpen={!!selectedInvoice}
         onClose={() => setSelectedInvoice(null)}
         invoice={selectedInvoice}
+        onDeleteSuccess={fetchInvoices}
       />
     </div>
   );

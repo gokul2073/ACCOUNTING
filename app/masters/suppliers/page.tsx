@@ -1,25 +1,29 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Building2 } from 'lucide-react';
+import { Plus, Search, Building2, Pencil } from 'lucide-react';
+
+let cachedSuppliers: any[] | null = null;
 
 export default function SuppliersPage() {
-  const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [suppliers, setSuppliers] = useState<any[]>(cachedSuppliers || []);
+  const [loading, setLoading] = useState(!cachedSuppliers);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
     legalName: '',
+    supplierCode: '',
     gstin: '',
     pan: '',
     phone: '',
     email: '',
     address: '',
-    state: 'Maharashtra',
-    stateCode: '27',
-    pinCode: '400001',
+    state: 'Tamil Nadu',
+    stateCode: '33',
+    pinCode: '635126',
     creditDays: '30',
     contactPerson: '',
   });
@@ -28,7 +32,10 @@ export default function SuppliersPage() {
     fetch('/api/suppliers')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success) setSuppliers(data.suppliers);
+        if (data.success) {
+          cachedSuppliers = data.suppliers;
+          setSuppliers(data.suppliers);
+        }
         setLoading(false);
       });
   };
@@ -37,10 +44,53 @@ export default function SuppliersPage() {
     loadSuppliers();
   }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleOpenAddModal = () => {
+    setEditingId(null);
+    setFormData({
+      name: '',
+      legalName: '',
+      supplierCode: '',
+      gstin: '',
+      pan: '',
+      phone: '',
+      email: '',
+      address: '',
+      state: 'Tamil Nadu',
+      stateCode: '33',
+      pinCode: '635126',
+      creditDays: '30',
+      contactPerson: '',
+    });
+    setShowModal(true);
+  };
+
+  const handleOpenEditModal = (supp: any) => {
+    setEditingId(supp.id);
+    setFormData({
+      name: supp.name || '',
+      legalName: supp.legalName || '',
+      supplierCode: supp.supplierCode || '',
+      gstin: supp.gstin || '',
+      pan: supp.pan || '',
+      phone: supp.phone || '',
+      email: supp.email || '',
+      address: supp.address || '',
+      state: supp.state || 'Tamil Nadu',
+      stateCode: supp.stateCode || '33',
+      pinCode: supp.pinCode || '635126',
+      creditDays: (supp.creditDays || 30).toString(),
+      contactPerson: supp.contactPerson || '',
+    });
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/suppliers', {
-      method: 'POST',
+    const url = editingId ? `/api/suppliers/${editingId}` : '/api/suppliers';
+    const method = editingId ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData),
     });
@@ -49,7 +99,7 @@ export default function SuppliersPage() {
       setShowModal(false);
       loadSuppliers();
     } else {
-      alert(data.error);
+      alert(data.error || 'Failed to save supplier');
     }
   };
 
@@ -69,7 +119,7 @@ export default function SuppliersPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={handleOpenAddModal}
           className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-md transition-all active:scale-95"
         >
           <Plus className="w-4 h-4" />
@@ -107,6 +157,7 @@ export default function SuppliersPage() {
                 <th className="p-3">Phone & Email</th>
                 <th className="p-3 text-center">Credit Days</th>
                 <th className="p-3 text-center">Status</th>
+                <th className="p-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -123,6 +174,15 @@ export default function SuppliersPage() {
                       ACTIVE
                     </span>
                   </td>
+                  <td className="p-3 text-center">
+                    <button
+                      onClick={() => handleOpenEditModal(supp)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-semibold rounded shadow-sm transition-all"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -132,8 +192,10 @@ export default function SuppliersPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleCreate} className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4 border border-slate-200">
-            <h3 className="text-base font-bold text-slate-900">Add New Supplier</h3>
+          <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4 border border-slate-200">
+            <h3 className="text-base font-bold text-slate-900">
+              {editingId ? 'Edit Supplier' : 'Add New Supplier'}
+            </h3>
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Supplier Name *</label>
@@ -152,7 +214,7 @@ export default function SuppliersPage() {
                   value={formData.gstin}
                   onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
                   className="w-full p-2 border border-slate-200 rounded font-mono uppercase"
-                  placeholder="24AAAAA0000A1Z5"
+                  placeholder="33AANFB9381J1Z0"
                 />
               </div>
               <div>
@@ -216,7 +278,7 @@ export default function SuppliersPage() {
                 type="submit"
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded shadow"
               >
-                Save Supplier
+                {editingId ? 'Update Supplier' : 'Save Supplier'}
               </button>
             </div>
           </form>

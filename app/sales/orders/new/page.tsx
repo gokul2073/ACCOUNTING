@@ -2,23 +2,22 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, ArrowLeft, Building2, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react';
 import { calculateGst } from '@/modules/gst/engine';
 
-export default function NewSalesInvoicePage() {
+export default function NewSalesOrderPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState<any[]>([]);
   const [itemsMaster, setItemsMaster] = useState<any[]>([]);
 
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState(new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]);
-  const [poNumber, setPoNumber] = useState('');
-  const [poDate, setPoDate] = useState('');
-  const [vehicleNo, setVehicleNo] = useState('');
-  const [notes, setNotes] = useState('Payment due within 30 days of invoice date.');
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
+  const [deliveryDate, setDeliveryDate] = useState(
+    new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0]
+  );
+  const [terms, setTerms] = useState('Payment within 30 days. Delivery within 15 days.');
+  const [notes, setNotes] = useState('Order confirmed. Production in progress.');
 
   const [lineItems, setLineItems] = useState<any[]>([
     { itemId: '', itemCode: '', description: '', hsnCode: '7208', quantity: 1, unit: 'pcs', rate: 550, discount: 0, gstRate: 18 },
@@ -82,8 +81,7 @@ export default function NewSalesInvoicePage() {
     setLineItems(lineItems.filter((_, i) => i !== index));
   };
 
-  // Compute live invoice totals
-  const companyStateCode = '33'; // Tamil Nadu (Balaji Conveyors)
+  const companyStateCode = '33';
   const customerStateCode = selectedCustomer?.stateCode || '33';
   const isInterState = companyStateCode !== customerStateCode;
 
@@ -132,17 +130,14 @@ export default function NewSalesInvoicePage() {
     setSaving(true);
 
     try {
-      const res = await fetch('/api/sales/invoices', {
+      const res = await fetch('/api/sales/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: selectedCustomerId,
-          invoiceNumber: invoiceNumber.trim() || undefined,
-          invoiceDate,
-          dueDate,
-          poNumber,
-          poDate,
-          vehicleNo,
+          orderDate,
+          deliveryDate,
+          terms,
           notes,
           items: calculatedItems,
         }),
@@ -150,9 +145,9 @@ export default function NewSalesInvoicePage() {
 
       const data = await res.json();
       if (data.success) {
-        router.push('/sales/invoices');
+        router.push('/sales/orders?tab=orders');
       } else {
-        alert(data.error || 'Failed to create invoice');
+        alert(data.error || 'Failed to create sales order');
       }
     } catch (err: any) {
       alert(err.message);
@@ -169,28 +164,28 @@ export default function NewSalesInvoicePage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-all cursor-pointer"
+            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-all"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Create GST Tax Invoice</h2>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Create Sales Order</h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Auto-posts Accounting Journal & Inventory Stock deduction on save.
+              Confirm purchase order from customer prior to dispatch and GST invoicing.
             </p>
           </div>
         </div>
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-md shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-md shadow-blue-600/30 transition-all active:scale-95 disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
-          <span>{saving ? 'Posting Invoice...' : 'Post Sales Invoice'}</span>
+          <span>{saving ? 'Creating Sales Order...' : 'Confirm Sales Order'}</span>
         </button>
       </div>
 
-      {/* Customer & Tax Configuration Panel */}
+      {/* Customer & Order Details */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">Select Customer *</label>
@@ -207,18 +202,6 @@ export default function NewSalesInvoicePage() {
               </option>
             ))}
           </select>
-
-          <label className="block text-xs font-bold text-slate-700 mt-4 mb-1">
-            Tax Invoice Number <span className="text-slate-400 font-normal">(Auto if blank)</span>
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. INV-26-27/00001 or BC/2026/101"
-            value={invoiceNumber}
-            onChange={(e) => setInvoiceNumber(e.target.value)}
-            className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-blue-900"
-          />
-
           {selectedCustomer && (
             <div className="mt-3 p-3 bg-blue-50/60 border border-blue-100 rounded-lg text-xs space-y-1">
               <p className="font-bold text-blue-950">{selectedCustomer.name}</p>
@@ -226,84 +209,52 @@ export default function NewSalesInvoicePage() {
               <p className="text-[11px] text-slate-600">
                 State: {selectedCustomer.state} (Code: {selectedCustomer.stateCode})
               </p>
-              <span
-                className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded mt-1 ${
-                  isInterState
-                    ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                }`}
-              >
-                {isInterState ? 'Inter-State (IGST Applicable)' : 'Intra-State (CGST + SGST)'}
-              </span>
             </div>
           )}
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Invoice Date *</label>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Order Date *</label>
           <input
             type="date"
-            value={invoiceDate}
-            onChange={(e) => setInvoiceDate(e.target.value)}
+            value={orderDate}
+            onChange={(e) => setOrderDate(e.target.value)}
             required
             className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono"
           />
 
-          <label className="block text-xs font-bold text-slate-700 mt-4 mb-1">Vehicle Number <span className="text-slate-400 font-normal">(Optional)</span></label>
+          <label className="block text-xs font-bold text-slate-700 mt-4 mb-1">Expected Delivery Date *</label>
           <input
-            type="text"
-            placeholder="e.g. TN 37 AB 1234"
-            value={vehicleNo}
-            onChange={(e) => setVehicleNo(e.target.value)}
+            type="date"
+            value={deliveryDate}
+            onChange={(e) => setDeliveryDate(e.target.value)}
+            required
             className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono"
           />
-
-          <div className="grid grid-cols-2 gap-2 mt-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">PO No.</label>
-              <input
-                type="text"
-                placeholder="PO-2026-99"
-                value={poNumber}
-                onChange={(e) => setPoNumber(e.target.value)}
-                className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg font-mono"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">PO Date</label>
-              <input
-                type="date"
-                value={poDate}
-                onChange={(e) => setPoDate(e.target.value)}
-                className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg font-mono"
-              />
-            </div>
-          </div>
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Payment Due Date *</label>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Terms & Notes</label>
           <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            required
-            className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono mb-4"
+            type="text"
+            placeholder="Payment Terms"
+            value={terms}
+            onChange={(e) => setTerms(e.target.value)}
+            className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg mb-3"
           />
-
-          <label className="block text-xs font-bold text-slate-700 mb-1">Payment Terms & Notes</label>
-          <textarea
-            rows={3}
+          <input
+            type="text"
+            placeholder="Delivery Notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white"
+            className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg"
           />
         </div>
       </div>
 
       {/* Line Items Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
-        <h3 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-3">Line Items & GST Breakdown</h3>
+        <h3 className="text-sm font-bold text-slate-900 border-b border-slate-200 pb-3">Line Items & Pricing</h3>
         <table className="w-full text-xs text-left">
           <thead className="bg-slate-100 text-slate-700 uppercase font-bold text-[10px]">
             <tr>
@@ -335,7 +286,7 @@ export default function NewSalesInvoicePage() {
                       <option value="">-- Choose Product --</option>
                       {itemsMaster.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.name} ({m.itemCode}) — Stock: {m.currentStock} {m.unit?.symbol}
+                          {m.name} ({m.itemCode})
                         </option>
                       ))}
                     </select>
@@ -412,7 +363,7 @@ export default function NewSalesInvoicePage() {
           <Plus className="w-4 h-4" /> Add Item Row
         </button>
 
-        {/* Invoice Summary Box */}
+        {/* Summary Box */}
         <div className="border-t border-slate-200 pt-4 flex justify-end">
           <div className="w-80 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
             <div className="flex justify-between text-slate-600">
@@ -437,7 +388,7 @@ export default function NewSalesInvoicePage() {
               </div>
             )}
             <div className="border-t border-slate-300 pt-2 flex justify-between text-sm font-extrabold text-blue-950">
-              <span>Grand Total:</span>
+              <span>Order Total:</span>
               <span className="font-mono">₹{grandTotal.toFixed(2)}</span>
             </div>
           </div>

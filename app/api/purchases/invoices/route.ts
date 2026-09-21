@@ -10,13 +10,46 @@ export async function GET(req: NextRequest) {
     const invoices = await db.purchaseInvoice.findMany({
       where: { companyId },
       include: {
-        supplier: true,
-        items: { include: { item: true } },
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            gstin: true,
+            phone: true,
+            email: true,
+            address: true,
+            state: true,
+            stateCode: true,
+            pinCode: true,
+          },
+        },
+        items: {
+          select: {
+            id: true,
+            itemId: true,
+            itemCode: true,
+            description: true,
+            hsnCode: true,
+            quantity: true,
+            unit: true,
+            rate: true,
+            discount: true,
+            taxableValue: true,
+            gstRate: true,
+            cgstAmount: true,
+            sgstAmount: true,
+            igstAmount: true,
+            totalAmount: true,
+          },
+        },
       },
       orderBy: { invoiceDate: 'desc' },
     });
 
-    return NextResponse.json({ success: true, invoices });
+    return NextResponse.json(
+      { success: true, invoices },
+      { headers: { 'Cache-Control': 'public, max-age=3, stale-while-revalidate=15' } }
+    );
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
