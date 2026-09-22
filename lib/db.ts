@@ -10,20 +10,22 @@ export const db =
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 
-// High-speed SQLite Optimization for sub-millisecond database queries
+// High-speed SQLite Optimization for sub-millisecond database queries (only when using SQLite file DB)
 if (!globalForPrisma.sqliteOptimized && process.env.NODE_ENV !== 'test') {
   globalForPrisma.sqliteOptimized = true;
-  (async () => {
-    try {
-      await db.$queryRawUnsafe('PRAGMA journal_mode = WAL;');
-      await db.$queryRawUnsafe('PRAGMA synchronous = NORMAL;');
-      await db.$queryRawUnsafe('PRAGMA temp_store = MEMORY;');
-      await db.$queryRawUnsafe('PRAGMA cache_size = -64000;');
-      await db.$queryRawUnsafe('PRAGMA mmap_size = 268435456;');
-      await db.$queryRawUnsafe('PRAGMA busy_timeout = 5000;');
-      await db.$queryRawUnsafe('PRAGMA foreign_keys = ON;');
-    } catch {}
-  })();
+  if (process.env.DATABASE_URL?.startsWith('file:')) {
+    (async () => {
+      try {
+        await db.$queryRawUnsafe('PRAGMA journal_mode = WAL;');
+        await db.$queryRawUnsafe('PRAGMA synchronous = NORMAL;');
+        await db.$queryRawUnsafe('PRAGMA temp_store = MEMORY;');
+        await db.$queryRawUnsafe('PRAGMA cache_size = -64000;');
+        await db.$queryRawUnsafe('PRAGMA mmap_size = 268435456;');
+        await db.$queryRawUnsafe('PRAGMA busy_timeout = 5000;');
+        await db.$queryRawUnsafe('PRAGMA foreign_keys = ON;');
+      } catch {}
+    })();
+  }
 }
 
 
