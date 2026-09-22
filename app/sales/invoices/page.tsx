@@ -6,6 +6,17 @@ import { Plus, Search, FileText, Printer, CheckCircle, Trash2 } from 'lucide-rea
 import InvoicePdfModal from '@/components/ui/InvoicePdfModal';
 import DocumentTrail from '@/components/ui/DocumentTrail';
 
+async function safeJsonParse(res: Response) {
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return await res.json();
+  }
+  const text = await res.text();
+  const titleMatch = text.match(/<title>(.*?)<\/title>/i);
+  const errorMessage = titleMatch ? titleMatch[1] : text.slice(0, 150);
+  throw new Error(`Server Error (${res.status}): ${errorMessage}`);
+}
+
 export default function SalesInvoicesPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,7 +26,7 @@ export default function SalesInvoicesPage() {
   const fetchInvoices = () => {
     setLoading(true);
     fetch('/api/sales/invoices')
-      .then((res) => res.json())
+      .then(safeJsonParse)
       .then((data) => {
         if (data.success) {
           setInvoices(data.invoices);
@@ -39,7 +50,7 @@ export default function SalesInvoicesPage() {
       const res = await fetch(`/api/sales/invoices/${invoiceId}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (data.success) {
         fetchInvoices();
       } else {

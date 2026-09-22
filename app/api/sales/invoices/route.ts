@@ -72,6 +72,8 @@ export async function POST(req: NextRequest) {
       vehicleNo: body.vehicleNo || undefined,
       eWayBillNo: body.eWayBillNo || undefined,
       netWeight: body.netWeight || undefined,
+      transportCharge: body.transportCharge ? parseFloat(body.transportCharge) : undefined,
+      transportGstRate: body.transportGstRate !== undefined ? parseFloat(body.transportGstRate) : undefined,
       notes: body.notes,
       items: body.items,
     });

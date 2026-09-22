@@ -410,6 +410,8 @@ model Quotation {
   status          String   @default("DRAFT") // DRAFT, SENT, CONVERTED, CANCELLED
   subtotal        Float    @default(0)
   discountTotal   Float    @default(0)
+  transportCharge Float    @default(0)
+  transportGstRate Float   @default(18)
   taxableAmount   Float    @default(0)
   cgstTotal       Float    @default(0)
   sgstTotal       Float    @default(0)
@@ -466,6 +468,8 @@ model SalesOrder {
   quotationId        String?
   status             String   @default("CONFIRMED") // DRAFT, CONFIRMED, PARTIALLY_DELIVERED, DELIVERED, INVOICED, CANCELLED
   subtotal           Float    @default(0)
+  transportCharge    Float    @default(0)
+  transportGstRate   Float    @default(18)
   taxableAmount      Float    @default(0)
   cgstTotal          Float    @default(0)
   sgstTotal          Float    @default(0)
@@ -570,6 +574,8 @@ model SalesInvoice {
   paymentStatus   String   @default("UNPAID") // UNPAID, PARTIAL, PAID
   subtotal        Float    @default(0)
   discountTotal   Float    @default(0)
+  transportCharge Float    @default(0)
+  transportGstRate Float   @default(18)
   taxableAmount   Float    @default(0)
   cgstTotal       Float    @default(0)
   sgstTotal       Float    @default(0)

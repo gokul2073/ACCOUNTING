@@ -2,14 +2,19 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
+    '10.210.4.51',
     '10.49.242.51',
     '10.255.165.51',
     '10.91.219.51',
     '10.68.138.51',
+    '10.*',
+    '192.168.*',
+    '172.*',
     'localhost',
     '127.0.0.1',
     '*.local',
   ],
+  reactStrictMode: false,
   serverExternalPackages: ['@prisma/client', 'bcryptjs', 'jsonwebtoken'],
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts', 'clsx', 'tailwind-merge', 'zod'],

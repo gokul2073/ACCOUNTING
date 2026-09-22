@@ -18,6 +18,8 @@ export default function NewSalesInvoicePage() {
   const [poNumber, setPoNumber] = useState('');
   const [poDate, setPoDate] = useState('');
   const [vehicleNo, setVehicleNo] = useState('');
+  const [transportCharge, setTransportCharge] = useState<number | string>('');
+  const [transportGstRate, setTransportGstRate] = useState<number>(18);
   const [notes, setNotes] = useState('Payment due within 30 days of invoice date.');
 
   const [lineItems, setLineItems] = useState<any[]>([
@@ -87,8 +89,9 @@ export default function NewSalesInvoicePage() {
   const customerStateCode = selectedCustomer?.stateCode || '33';
   const isInterState = companyStateCode !== customerStateCode;
 
-  let subtotal = 0;
-  let taxableAmount = 0;
+  const tCharge = Number(transportCharge) || 0;
+  let productSubtotal = 0;
+  let productTaxable = 0;
   let cgstTotal = 0;
   let sgstTotal = 0;
   let igstTotal = 0;
@@ -100,8 +103,8 @@ export default function NewSalesInvoicePage() {
 
     const gstRes = calculateGst(companyStateCode, customerStateCode, itemTaxable, Number(item.gstRate) || 18);
 
-    subtotal += itemSubtotal;
-    taxableAmount += itemTaxable;
+    productSubtotal += itemSubtotal;
+    productTaxable += itemTaxable;
     cgstTotal += gstRes.cgstAmount;
     sgstTotal += gstRes.sgstAmount;
     igstTotal += gstRes.igstAmount;
@@ -115,6 +118,18 @@ export default function NewSalesInvoicePage() {
       totalAmount: gstRes.grandTotal,
     };
   });
+
+  if (tCharge > 0) {
+    const transportGst = calculateGst(companyStateCode, customerStateCode, tCharge, transportGstRate);
+    cgstTotal += transportGst.cgstAmount;
+    sgstTotal += transportGst.sgstAmount;
+    igstTotal += transportGst.igstAmount;
+  }
+
+  const taxableAmount = Number((productTaxable + tCharge).toFixed(2));
+  cgstTotal = Number(cgstTotal.toFixed(2));
+  sgstTotal = Number(sgstTotal.toFixed(2));
+  igstTotal = Number(igstTotal.toFixed(2));
 
   const grandTotal = Number((taxableAmount + cgstTotal + sgstTotal + igstTotal).toFixed(2));
 
@@ -143,6 +158,8 @@ export default function NewSalesInvoicePage() {
           poNumber,
           poDate,
           vehicleNo,
+          transportCharge: tCharge,
+          transportGstRate,
           notes,
           items: calculatedItems,
         }),
@@ -416,8 +433,27 @@ export default function NewSalesInvoicePage() {
         <div className="border-t border-slate-200 pt-4 flex justify-end">
           <div className="w-80 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
             <div className="flex justify-between text-slate-600">
+              <span>Product Total:</span>
+              <span className="font-mono font-semibold">₹{productSubtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center text-slate-700 bg-amber-50/80 p-1.5 rounded border border-amber-200/80">
+              <span className="font-bold text-[11px] text-amber-900">Transport Charges:</span>
+              <div className="flex items-center gap-1">
+                <span className="font-mono text-xs">₹</span>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  placeholder="0.00"
+                  value={transportCharge}
+                  onChange={(e) => setTransportCharge(e.target.value)}
+                  className="w-20 px-1.5 py-0.5 text-right font-mono text-xs border border-amber-300 rounded bg-white font-bold text-amber-950 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-between text-slate-900 font-extrabold border-t border-b border-slate-200 py-1">
               <span>Taxable Value:</span>
-              <span className="font-mono font-semibold">₹{taxableAmount.toFixed(2)}</span>
+              <span className="font-mono">₹{taxableAmount.toFixed(2)}</span>
             </div>
             {!isInterState ? (
               <>

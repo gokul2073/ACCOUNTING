@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
       orderBy: { name: 'asc' },
     });
 
-    return NextResponse.json({ success: true, customers });
+    return NextResponse.json(
+      { success: true, customers },
+      { headers: { 'Cache-Control': 'public, max-age=5, stale-while-revalidate=30' } }
+    );
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

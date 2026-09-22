@@ -109,7 +109,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { invoiceNumber, vehicleNo, poNumber, poDate, eWayBillNo, netWeight, notes } = body;
+    const { invoiceNumber, vehicleNo, poNumber, poDate, eWayBillNo, netWeight, transportCharge, transportGstRate, notes } = body;
 
     const existing = await db.salesInvoice.findUnique({ where: { id } });
     if (!existing) {
@@ -139,6 +139,8 @@ export async function PATCH(
           ...(poDate !== undefined ? { poDate: poDate ? new Date(poDate) : null } : {}),
           ...(eWayBillNo !== undefined ? { eWayBillNo } : {}),
           ...(netWeight !== undefined ? { netWeight } : {}),
+          ...(transportCharge !== undefined ? { transportCharge: parseFloat(transportCharge) || 0 } : {}),
+          ...(transportGstRate !== undefined ? { transportGstRate: parseFloat(transportGstRate) || 18 } : {}),
           ...(notes !== undefined ? { notes } : {}),
         },
         include: {

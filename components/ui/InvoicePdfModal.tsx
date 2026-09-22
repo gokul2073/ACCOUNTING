@@ -77,6 +77,17 @@ export default function InvoicePdfModal({ isOpen, onClose, invoice: initialInvoi
     }
   };
 
+async function safeJsonParse(res: Response) {
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return await res.json();
+  }
+  const text = await res.text();
+  const titleMatch = text.match(/<title>(.*?)<\/title>/i);
+  const errorMessage = titleMatch ? titleMatch[1] : text.slice(0, 150);
+  throw new Error(`Server Error (${res.status}): ${errorMessage}`);
+}
+
   const handleEditInvoiceNumber = async () => {
     const newNo = window.prompt('Enter new Tax Invoice Number:', invoice.invoiceNumber);
     if (!newNo || newNo.trim() === '' || newNo.trim() === invoice.invoiceNumber) return;
@@ -88,7 +99,7 @@ export default function InvoicePdfModal({ isOpen, onClose, invoice: initialInvoi
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ invoiceNumber: newNo.trim() }),
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (data.success) {
         setInvoice({ ...invoice, invoiceNumber: newNo.trim() });
         setSaveStatus(`Invoice number updated to ${newNo.trim()}`);
@@ -115,7 +126,7 @@ export default function InvoicePdfModal({ isOpen, onClose, invoice: initialInvoi
       const res = await fetch(`/api/sales/invoices/${invoice.id}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (data.success) {
         onClose();
         if (onDeleteSuccess) onDeleteSuccess();
@@ -129,6 +140,35 @@ export default function InvoicePdfModal({ isOpen, onClose, invoice: initialInvoi
       setDeleting(false);
     }
   };
+
+  const productItems = (invoice.items || []).filter(
+    (item: any) => item.itemCode !== 'SRV-TRANSPORT' && !item.description?.toLowerCase().includes('freight & transport')
+  );
+
+  const legacyTransportItem = (invoice.items || []).find(
+    (item: any) => item.itemCode === 'SRV-TRANSPORT' || item.description?.toLowerCase().includes('freight & transport')
+  );
+
+  const transportCharge = Number(
+    (invoice.transportCharge !== undefined && invoice.transportCharge > 0
+      ? invoice.transportCharge
+      : legacyTransportItem
+      ? legacyTransportItem.taxableValue || legacyTransportItem.totalAmount
+      : 0
+    ).toFixed(2)
+  );
+
+  const productSubtotal = Number(
+    productItems
+      .reduce(
+        (acc: number, item: any) =>
+          acc + (item.taxableValue !== undefined ? item.taxableValue : item.quantity * item.rate - (item.discount || 0)),
+        0
+      )
+      .toFixed(2)
+  );
+
+  const taxableValue = Number((productSubtotal + transportCharge).toFixed(2));
 
   const invoiceDateStr = invoice.invoiceDate
     ? new Date(invoice.invoiceDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-')
@@ -291,7 +331,7 @@ export default function InvoicePdfModal({ isOpen, onClose, invoice: initialInvoi
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black">
-                    {invoice.items?.map((item: any, idx: number) => (
+                    {productItems.map((item: any, idx: number) => (
                       <tr key={idx} className="text-center font-medium even:bg-slate-50/40">
                         <td className="p-2 border-r border-black text-center font-bold text-slate-700">{idx + 1}</td>
                         <td className="p-2 border-r border-black text-left font-bold text-slate-950">
@@ -340,8 +380,16 @@ export default function InvoicePdfModal({ isOpen, onClose, invoice: initialInvoi
                   {/* Right Side: Totals & Taxes */}
                   <div className="col-span-5 p-0 text-[10.5px] font-semibold">
                     <div className="grid grid-cols-12 border-b border-black">
-                      <div className="col-span-6 p-1 border-r border-black font-bold uppercase bg-slate-50">TAXABLE AMOUNT</div>
-                      <div className="col-span-6 p-1 text-right font-mono font-bold">{invoice.taxableAmount.toFixed(2)}</div>
+                      <div className="col-span-6 p-1 border-r border-black font-bold uppercase bg-slate-50">PRODUCT TOTAL</div>
+                      <div className="col-span-6 p-1 text-right font-mono font-bold">{productSubtotal.toFixed(2)}</div>
+                    </div>
+                    <div className="grid grid-cols-12 border-b border-black">
+                      <div className="col-span-6 p-1 border-r border-black font-bold uppercase bg-amber-50/50 text-slate-900">TRANSPORT CHARGES</div>
+                      <div className="col-span-6 p-1 text-right font-mono font-bold">{transportCharge.toFixed(2)}</div>
+                    </div>
+                    <div className="grid grid-cols-12 border-b border-black bg-slate-100 font-extrabold">
+                      <div className="col-span-6 p-1 border-r border-black uppercase">TAXABLE VALUE</div>
+                      <div className="col-span-6 p-1 text-right font-mono font-bold">{taxableValue.toFixed(2)}</div>
                     </div>
                     {!isInterState ? (
                       <>
@@ -354,19 +402,19 @@ export default function InvoicePdfModal({ isOpen, onClose, invoice: initialInvoi
                           <div className="col-span-6 p-1 text-right font-mono">{invoice.cgstTotal.toFixed(2)}</div>
                         </div>
                         <div className="grid grid-cols-12 border-b border-black">
-                          <div className="col-span-6 p-1 border-r border-black font-bold">IGST 18%</div>
-                          <div className="col-span-6 p-1 text-right font-mono">0.00</div>
+                          <div className="col-span-6 p-1 border-r border-black font-bold text-slate-400">IGST 18%</div>
+                          <div className="col-span-6 p-1 text-right font-mono text-slate-400">0.00</div>
                         </div>
                       </>
                     ) : (
                       <>
                         <div className="grid grid-cols-12 border-b border-black">
-                          <div className="col-span-6 p-1 border-r border-black font-bold">SGST 0%</div>
-                          <div className="col-span-6 p-1 text-right font-mono">0.00</div>
+                          <div className="col-span-6 p-1 border-r border-black font-bold text-slate-400">SGST 0%</div>
+                          <div className="col-span-6 p-1 text-right font-mono text-slate-400">0.00</div>
                         </div>
                         <div className="grid grid-cols-12 border-b border-black">
-                          <div className="col-span-6 p-1 border-r border-black font-bold">CGST 0%</div>
-                          <div className="col-span-6 p-1 text-right font-mono">0.00</div>
+                          <div className="col-span-6 p-1 border-r border-black font-bold text-slate-400">CGST 0%</div>
+                          <div className="col-span-6 p-1 text-right font-mono text-slate-400">0.00</div>
                         </div>
                         <div className="grid grid-cols-12 border-b border-black">
                           <div className="col-span-6 p-1 border-r border-black font-bold">IGST 18%</div>
@@ -374,9 +422,15 @@ export default function InvoicePdfModal({ isOpen, onClose, invoice: initialInvoi
                         </div>
                       </>
                     )}
-                    <div className="grid grid-cols-12 bg-slate-100 font-bold border-t-2 border-black">
-                      <div className="col-span-6 p-1 border-r border-black font-black uppercase text-xs">GRAND TOTAL</div>
-                      <div className="col-span-6 p-1 text-right font-mono font-black text-xs text-black">₹{invoice.grandTotal.toFixed(2)}</div>
+                    {invoice.roundOff ? (
+                      <div className="grid grid-cols-12 border-b border-black text-[10px]">
+                        <div className="col-span-6 p-1 border-r border-black font-bold">ROUND OFF</div>
+                        <div className="col-span-6 p-1 text-right font-mono">{invoice.roundOff.toFixed(2)}</div>
+                      </div>
+                    ) : null}
+                    <div className="grid grid-cols-12 bg-black text-white font-bold border-t-2 border-black">
+                      <div className="col-span-6 p-1 border-r border-white font-black uppercase text-xs tracking-wider">TOTAL VALUE</div>
+                      <div className="col-span-6 p-1 text-right font-mono font-black text-xs text-amber-300">₹{invoice.grandTotal.toFixed(2)}</div>
                     </div>
                   </div>
                 </div>

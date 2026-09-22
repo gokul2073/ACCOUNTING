@@ -10,15 +10,20 @@ export const db =
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 
-// Optimize SQLite for high-speed concurrent reads and writes
-if (!globalForPrisma.sqliteOptimized) {
+// High-speed SQLite Optimization for sub-millisecond database queries
+if (!globalForPrisma.sqliteOptimized && process.env.NODE_ENV !== 'test') {
   globalForPrisma.sqliteOptimized = true;
-  Promise.all([
-    db.$queryRawUnsafe('PRAGMA journal_mode = WAL;'),
-    db.$queryRawUnsafe('PRAGMA synchronous = NORMAL;'),
-    db.$queryRawUnsafe('PRAGMA temp_store = MEMORY;'),
-    db.$queryRawUnsafe('PRAGMA cache_size = -64000;'),
-    db.$queryRawUnsafe('PRAGMA foreign_keys = ON;'),
-  ]).catch(() => {});
+  (async () => {
+    try {
+      await db.$queryRawUnsafe('PRAGMA journal_mode = WAL;');
+      await db.$queryRawUnsafe('PRAGMA synchronous = NORMAL;');
+      await db.$queryRawUnsafe('PRAGMA temp_store = MEMORY;');
+      await db.$queryRawUnsafe('PRAGMA cache_size = -64000;');
+      await db.$queryRawUnsafe('PRAGMA mmap_size = 268435456;');
+      await db.$queryRawUnsafe('PRAGMA busy_timeout = 5000;');
+      await db.$queryRawUnsafe('PRAGMA foreign_keys = ON;');
+    } catch {}
+  })();
 }
+
 

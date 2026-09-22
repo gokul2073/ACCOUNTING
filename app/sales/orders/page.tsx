@@ -22,6 +22,17 @@ import DocumentTrail from '@/components/ui/DocumentTrail';
 import QuotationPdfModal from '@/components/ui/QuotationPdfModal';
 import SalesOrderPdfModal from '@/components/ui/SalesOrderPdfModal';
 
+async function safeJsonParse(res: Response) {
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return await res.json();
+  }
+  const text = await res.text();
+  const titleMatch = text.match(/<title>(.*?)<\/title>/i);
+  const errorMessage = titleMatch ? titleMatch[1] : text.slice(0, 150);
+  throw new Error(`Server Error (${res.status}): ${errorMessage}`);
+}
+
 function SalesOrdersHubContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,14 +54,16 @@ function SalesOrdersHubContent() {
     vehicleNo: '',
     eWayBillNo: '',
     netWeight: '',
+    transportCharge: '',
+    transportGstRate: '18',
   });
   const [convertingId, setConvertingId] = useState<string | null>(null);
 
   const loadData = () => {
     setLoading(true);
     Promise.all([
-      fetch('/api/sales/quotations').then((res) => res.json()),
-      fetch('/api/sales/orders').then((res) => res.json()),
+      fetch('/api/sales/quotations').then(safeJsonParse),
+      fetch('/api/sales/orders').then(safeJsonParse),
     ])
       .then(([qData, oData]) => {
         if (qData.success) setQuotations(qData.quotations);
@@ -69,7 +82,7 @@ function SalesOrdersHubContent() {
     setConvertingId(id);
     try {
       const res = await fetch(`/api/sales/quotations/${id}/convert`, { method: 'POST' });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (data.success) {
         alert('Quotation successfully converted to Sales Order!');
         setActiveTab('orders');
@@ -93,6 +106,8 @@ function SalesOrdersHubContent() {
       vehicleNo: order.vehicleNo || '',
       eWayBillNo: '',
       netWeight: '',
+      transportCharge: '',
+      transportGstRate: '18',
     });
   };
 
@@ -107,7 +122,7 @@ function SalesOrdersHubContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(convertDetails),
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (data.success) {
         setConvertModalOrder(null);
         alert('Sales Order successfully converted & posted as GST Tax Invoice!');
@@ -132,7 +147,7 @@ function SalesOrdersHubContent() {
       const res = await fetch(`/api/sales/quotations/${id}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (data.success) {
         loadData();
       } else {
@@ -153,7 +168,7 @@ function SalesOrdersHubContent() {
       const res = await fetch(`/api/sales/orders/${id}`, {
         method: 'DELETE',
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
       if (data.success) {
         loadData();
       } else {
@@ -163,6 +178,7 @@ function SalesOrdersHubContent() {
       alert(`Delete failed: ${err.message || 'Network error'}`);
     }
   };
+
 
   // KPIs
   const totalQuotationValue = quotations.reduce((acc, q) => acc + (q.grandTotal || 0), 0);
@@ -558,6 +574,45 @@ function SalesOrdersHubContent() {
                   />
                 </div>
               </div>
+
+              <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-3">
+                <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Transportation & Freight Charges</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                      Transport Charge (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder="e.g. 1500"
+                      value={convertDetails.transportCharge}
+                      onChange={(e) => setConvertDetails({ ...convertDetails, transportCharge: e.target.value })}
+                      className="w-full px-3 py-1.5 text-xs bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 font-mono font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                      GST Rate (%)
+                    </label>
+                    <select
+                      value={convertDetails.transportGstRate}
+                      onChange={(e) => setConvertDetails({ ...convertDetails, transportGstRate: e.target.value })}
+                      className="w-full px-3 py-1.5 text-xs bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 font-semibold"
+                    >
+                      <option value="18">18% (Standard Freight)</option>
+                      <option value="12">12%</option>
+                      <option value="5">5% (GTA Services)</option>
+                      <option value="0">0% (Exempt)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button

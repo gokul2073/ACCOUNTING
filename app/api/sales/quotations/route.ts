@@ -10,8 +10,34 @@ export async function GET(req: NextRequest) {
     const quotations = await db.quotation.findMany({
       where: { companyId },
       include: {
-        customer: true,
-        items: { include: { item: true } },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            state: true,
+          },
+        },
+        items: {
+          select: {
+            id: true,
+            itemId: true,
+            itemCode: true,
+            description: true,
+            hsnCode: true,
+            quantity: true,
+            unit: true,
+            rate: true,
+            discount: true,
+            taxableValue: true,
+            gstRate: true,
+            cgstAmount: true,
+            sgstAmount: true,
+            igstAmount: true,
+            totalAmount: true,
+          },
+        },
       },
       orderBy: { quotationDate: 'desc' },
     });

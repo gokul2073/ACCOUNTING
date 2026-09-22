@@ -30,6 +30,8 @@ export interface CreateSalesInvoiceInput {
   vehicleNo?: string;
   eWayBillNo?: string;
   netWeight?: string;
+  transportCharge?: number;
+  transportGstRate?: number;
   notes?: string;
   items: SalesInvoiceItemInput[];
 }
@@ -47,9 +49,12 @@ export async function createSalesInvoice(input: CreateSalesInvoiceInput) {
     : await getNextDocumentNumber(input.companyId, 'SALES_INVOICE');
   const isInterState = company.stateCode !== customer.stateCode;
 
-  let subtotal = 0;
+  const transportCharge = Number(input.transportCharge) || 0;
+  const transportGstRate = input.transportGstRate !== undefined ? Number(input.transportGstRate) : 18;
+
+  let productSubtotal = 0;
   let discountTotal = 0;
-  let taxableAmount = 0;
+  let productTaxable = 0;
   let cgstTotal = 0;
   let sgstTotal = 0;
   let igstTotal = 0;
@@ -61,9 +66,9 @@ export async function createSalesInvoice(input: CreateSalesInvoiceInput) {
 
     const gstRes = calculateGst(company.stateCode, customer.stateCode, itemTaxable, item.gstRate);
 
-    subtotal += itemSubtotal;
+    productSubtotal += itemSubtotal;
     discountTotal += discount;
-    taxableAmount += itemTaxable;
+    productTaxable += itemTaxable;
     cgstTotal += gstRes.cgstAmount;
     sgstTotal += gstRes.sgstAmount;
     igstTotal += gstRes.igstAmount;
@@ -85,6 +90,18 @@ export async function createSalesInvoice(input: CreateSalesInvoiceInput) {
       totalAmount: gstRes.grandTotal,
     };
   });
+
+  if (transportCharge > 0) {
+    const transportGst = calculateGst(company.stateCode, customer.stateCode, transportCharge, transportGstRate);
+    cgstTotal += transportGst.cgstAmount;
+    sgstTotal += transportGst.sgstAmount;
+    igstTotal += transportGst.igstAmount;
+  }
+
+  const taxableAmount = Number((productTaxable + transportCharge).toFixed(2));
+  cgstTotal = Number(cgstTotal.toFixed(2));
+  sgstTotal = Number(sgstTotal.toFixed(2));
+  igstTotal = Number(igstTotal.toFixed(2));
 
   const grandTotal = Number((taxableAmount + cgstTotal + sgstTotal + igstTotal).toFixed(2));
 
@@ -111,12 +128,14 @@ export async function createSalesInvoice(input: CreateSalesInvoiceInput) {
       isInterState,
       status: 'POSTED',
       paymentStatus: 'UNPAID',
-      subtotal: Number(subtotal.toFixed(2)),
+      subtotal: Number(productSubtotal.toFixed(2)),
       discountTotal: Number(discountTotal.toFixed(2)),
-      taxableAmount: Number(taxableAmount.toFixed(2)),
-      cgstTotal: Number(cgstTotal.toFixed(2)),
-      sgstTotal: Number(sgstTotal.toFixed(2)),
-      igstTotal: Number(igstTotal.toFixed(2)),
+      transportCharge,
+      transportGstRate,
+      taxableAmount,
+      cgstTotal,
+      sgstTotal,
+      igstTotal,
       grandTotal,
       paidAmount: 0,
       balanceAmount: grandTotal,
@@ -482,12 +501,72 @@ export async function convertQuotationToSalesOrder(quotationId: string, companyI
   return salesOrder;
 }
 
+async function getOrCreateTransportItem(companyId: string, defaultGstRate: number) {
+  let item = await db.item.findFirst({
+    where: {
+      companyId,
+      OR: [
+        { itemCode: 'SRV-TRANSPORT' },
+        { name: { contains: 'Transport' } },
+        { name: { contains: 'Freight' } },
+      ],
+    },
+    include: { hsnCode: true },
+  });
+
+  if (item) return item;
+
+  let unit = (await db.unit.findFirst({ where: { symbol: 'pcs' } })) || (await db.unit.findFirst());
+  if (!unit) {
+    unit = await db.unit.create({
+      data: { name: 'Piece', symbol: 'pcs' },
+    });
+  }
+
+  let gstRateRec = (await db.gstRate.findFirst({ where: { rate: defaultGstRate } })) || (await db.gstRate.findFirst());
+  if (!gstRateRec) {
+    gstRateRec = await db.gstRate.create({
+      data: {
+        name: `${defaultGstRate}%`,
+        rate: defaultGstRate,
+        cgstRate: defaultGstRate / 2,
+        sgstRate: defaultGstRate / 2,
+        igstRate: defaultGstRate,
+      },
+    });
+  }
+
+  let hsn = await db.hsnCode.findFirst({ where: { code: '9965' } });
+  if (!hsn) {
+    hsn = await db.hsnCode.create({
+      data: { code: '9965', description: 'Goods transport services', type: 'SERVICES' },
+    });
+  }
+
+  item = await db.item.create({
+    data: {
+      companyId,
+      itemCode: 'SRV-TRANSPORT',
+      name: 'Freight & Transportation Charges',
+      description: 'Transportation & Freight Charges',
+      itemType: 'SERVICES',
+      unitId: unit.id,
+      gstRateId: gstRateRec.id,
+      hsnCodeId: hsn.id,
+      salesPrice: 0,
+    },
+    include: { hsnCode: true },
+  });
+
+  return item;
+}
+
 /**
  * Convert Sales Order to Sales Invoice
  */
 export async function convertSalesOrderToInvoice(
   salesOrderId: string,
-  companyId: string,
+  companyId?: string,
   extraDetails?: {
     invoiceNumber?: string;
     poNumber?: string;
@@ -495,16 +574,38 @@ export async function convertSalesOrderToInvoice(
     vehicleNo?: string;
     eWayBillNo?: string;
     netWeight?: string;
+    transportCharge?: number;
+    transportGstRate?: number;
   }
 ) {
   const salesOrder = await db.salesOrder.findUnique({
     where: { id: salesOrderId },
-    include: { items: true },
+    include: {
+      items: {
+        include: { item: { include: { hsnCode: true } } },
+      },
+    },
   });
   if (!salesOrder) throw new Error('Sales Order not found');
 
+  const targetCompanyId = companyId || salesOrder.companyId;
+
+  const invoiceItems: SalesInvoiceItemInput[] = salesOrder.items
+    .filter((i) => i.itemCode !== 'SRV-TRANSPORT' && !i.description?.toLowerCase().includes('freight & transport'))
+    .map((i) => ({
+      itemId: i.itemId,
+      itemCode: i.itemCode,
+      description: i.description,
+      hsnCode: i.item?.hsnCode?.code || undefined,
+      quantity: i.quantity,
+      unit: i.unit,
+      rate: i.rate,
+      discount: i.discount,
+      gstRate: i.gstRate,
+    }));
+
   const invoice = await createSalesInvoice({
-    companyId,
+    companyId: targetCompanyId,
     customerId: salesOrder.customerId,
     salesOrderId: salesOrder.id,
     invoiceNumber: extraDetails?.invoiceNumber || undefined,
@@ -515,17 +616,10 @@ export async function convertSalesOrderToInvoice(
     vehicleNo: extraDetails?.vehicleNo || salesOrder.vehicleNo || undefined,
     eWayBillNo: extraDetails?.eWayBillNo || undefined,
     netWeight: extraDetails?.netWeight || undefined,
+    transportCharge: extraDetails?.transportCharge !== undefined ? extraDetails.transportCharge : salesOrder.transportCharge || 0,
+    transportGstRate: extraDetails?.transportGstRate !== undefined ? extraDetails.transportGstRate : salesOrder.transportGstRate || 18,
     notes: salesOrder.notes || undefined,
-    items: salesOrder.items.map((i) => ({
-      itemId: i.itemId,
-      itemCode: i.itemCode,
-      description: i.description,
-      quantity: i.quantity,
-      unit: i.unit,
-      rate: i.rate,
-      discount: i.discount,
-      gstRate: i.gstRate,
-    })),
+    items: invoiceItems,
   });
 
   await db.salesOrder.update({
@@ -535,6 +629,7 @@ export async function convertSalesOrderToInvoice(
 
   return invoice;
 }
+
 
 
 
